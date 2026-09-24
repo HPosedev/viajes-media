@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     ACCOMMODATION_PROVIDER: str = "mock"  # mock | rapidapi | scraper
     RAPIDAPI_KEY: str = ""
     RAPIDAPI_HOST: str = "booking-com15.p.rapidapi.com"
+    RAPIDAPI_PRICE_CACHE_HOURS: int = 3  # Live prices are reused this long to save API quota
 
     # Paths & storage
     DATA_DIR: Path = BASE_DIR / "data"

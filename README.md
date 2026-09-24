@@ -120,11 +120,16 @@ Copia la plantilla `.env.example` a `.env`:
 ```bash
 cp .env.example .env
 ```
-Por defecto, la aplicación utiliza el proveedor `mock`, que funciona 100% offline sin necesidad de credenciales externas. Si deseas usar RapidAPI, añade tu clave en el archivo `.env`:
+Por defecto, la aplicación utiliza el proveedor `mock`, que funciona 100% offline sin necesidad de credenciales externas, pero con **precios estimados** que no coinciden con los de Booking.
+
+#### Precios reales de Booking (RapidAPI)
+1. Crea una cuenta en [rapidapi.com](https://rapidapi.com) y suscríbete a la API [Booking COM](https://rapidapi.com/DataCrawler/api/booking-com15) (tiene plan gratuito con cuota mensual limitada).
+2. Copia tu clave (`X-RapidAPI-Key`) en el archivo `.env` (nunca en `.env.example`: el `.env` está excluido de git):
 ```env
 ACCOMMODATION_PROVIDER=rapidapi
 RAPIDAPI_KEY=tu_api_key_aqui
 ```
+Cada destino consulta la API en euros y para tus fechas exactas (si no indicas fechas, se usa el próximo viernes → sábado). Las respuestas se guardan en la caché SQLite (`RAPIDAPI_PRICE_CACHE_HOURS`, 3 h por defecto), así que cambiar filtros no gasta cuota. Si la clave falla o se agota la cuota, la app avisa y muestra datos de demostración.
 
 ---
 

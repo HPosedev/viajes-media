@@ -11,6 +11,7 @@ if str(ROOT_DIR) not in sys.path:
 import streamlit as st
 import pandas as pd
 
+from src.config import settings
 from src.core.models import (
     AccommodationType,
     FilterParams,
@@ -648,7 +649,12 @@ else:
         if not filtered_accs:
             st.info("No hay alojamientos que coincidan con los filtros seleccionados. Intenta ampliar el presupuesto o reducir la nota mínima.")
         else:
-            if not all(acc.is_live for acc in filtered_accs):
+            if not all(acc.is_live for acc in filtered_accs) and settings.ACCOMMODATION_PROVIDER.lower() == "rapidapi":
+                st.warning(
+                    "⚠️ No se pudieron obtener precios reales de Booking (revisa RAPIDAPI_KEY o la cuota de RapidAPI). "
+                    "Se muestran datos de demostración."
+                )
+            elif not all(acc.is_live for acc in filtered_accs):
                 st.caption(
                     "ℹ️ **Datos de demostración:** los precios son estimaciones y los alojamientos marcados como "
                     "*ejemplo* son orientativos. Los enlaces abren Booking/Airbnb con tus fechas para ver el precio "

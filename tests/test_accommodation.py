@@ -152,12 +152,12 @@ def test_accommodation_exact_dates_pricing(acc_provider: MockAccommodationProvid
     assert abs(first_weekend.total_price - (first_weekend.price_per_night * first_weekend.nights_count)) <= 2.0
 
 
-def test_rapidapi_nights_calculation():
+def test_rapidapi_nights_calculation(temp_cache):
     """Verify that grossPrice from Booking.com API (which covers all nights) is divided by nights_count."""
     from unittest.mock import patch, MagicMock
     from src.providers.accommodation.rapidapi import RapidApiBookingProvider
 
-    provider = RapidApiBookingProvider(api_key="valid_test_api_key_123")
+    provider = RapidApiBookingProvider(api_key="valid_test_api_key_123", cache=temp_cache)
 
     mock_client = MagicMock()
     # Response 1: searchDestination
@@ -211,13 +211,13 @@ def test_rapidapi_nights_calculation():
     assert "checkin=2026-09-25" in acc.booking_url and "/hotel/" not in acc.booking_url
 
 
-def test_rapidapi_fallback_keeps_stay_dates():
+def test_rapidapi_fallback_keeps_stay_dates(temp_cache):
     """If the destination lookup fails, the offline fallback must still price the requested dates."""
     from datetime import date
     from unittest.mock import patch, MagicMock
     from src.providers.accommodation.rapidapi import RapidApiBookingProvider
 
-    provider = RapidApiBookingProvider(api_key="valid_test_api_key_123")
+    provider = RapidApiBookingProvider(api_key="valid_test_api_key_123", cache=temp_cache)
     resp_error = MagicMock(status_code=429, text="Too many requests")
     mock_client = MagicMock()
     mock_client.get.return_value = resp_error
@@ -230,17 +230,17 @@ def test_rapidapi_fallback_keeps_stay_dates():
     assert all(r.nights_count == 2 and r.checkin_date == date(2026, 9, 25) for r in results)
 
 
-def test_rapidapi_does_not_mix_in_mock_data_when_filters_exclude_real_results():
+def test_rapidapi_does_not_mix_in_mock_data_when_filters_exclude_real_results(temp_cache):
     from unittest.mock import patch, MagicMock
     from src.providers.accommodation.rapidapi import RapidApiBookingProvider
 
-    provider = RapidApiBookingProvider(api_key="valid_test_api_key_123")
+    provider = RapidApiBookingProvider(api_key="valid_test_api_key_123", cache=temp_cache)
     resp_dest = MagicMock(status_code=200)
     resp_dest.json.return_value = {"data": [{"dest_id": "-1"}]}
     resp_hotels = MagicMock(status_code=200)
     resp_hotels.json.return_value = {"data": {"hotels": [
         {"property": {"id": 1, "name": "Hotel Real", "reviewScore": 7.0, "reviewCount": 50,
-                      "priceBreakdown": {"grossPrice": {"value": 80.0}}}}
+                      "priceBreakdown": {"grossPrice": {"value": 80.0, "currency": "EUR"}}}}
     ]}}
     mock_client = MagicMock()
     mock_client.get.side_effect = [resp_dest, resp_hotels]
@@ -250,6 +250,94 @@ def test_rapidapi_does_not_mix_in_mock_data_when_filters_exclude_real_results():
         results = provider.search("Benicarló", min_rating=9.0)
 
     assert results == []
+
+
+def _rapidapi_client(*responses):
+    from unittest.mock import MagicMock
+    client = MagicMock()
+    mocked = []
+    for payload in responses:
+        resp = MagicMock(status_code=200)
+        resp.json.return_value = payload
+        mocked.append(resp)
+    client.get.side_effect = mocked
+    return client
+
+
+def _rapid_hotel(hotel_id, name, value, currency="EUR", score=8.5):
+    return {"property": {"id": hotel_id, "name": name, "reviewScore": score, "reviewCount": 100,
+                         "priceBreakdown": {"grossPrice": {"value": value, "currency": currency}}}}
+
+
+def test_rapidapi_requests_euros_for_the_stay_and_prefers_city_destinations(temp_cache):
+    from datetime import date
+    from unittest.mock import patch
+    from src.providers.accommodation.rapidapi import RapidApiBookingProvider
+
+    client = _rapidapi_client(
+        {"status": True, "data": [
+            {"dest_id": "900", "dest_type": "hotel", "search_type": "hotel"},
+            {"dest_id": "-372490", "dest_type": "city", "search_type": "city"},
+        ]},
+        {"status": True, "data": {"hotels": [
+            _rapid_hotel(1, "Hotel Euro", 300.0),
+            _rapid_hotel(2, "Hotel Dólar", 300.0, currency="USD"),  # wrong currency: never shown as €
+            {"property": {"id": 3, "name": "Hotel Completo"}},  # sold out: no price, never invented
+        ]}},
+    )
+    provider = RapidApiBookingProvider(api_key="valid_test_api_key_123", cache=temp_cache)
+    with patch("httpx.Client") as mock_client_cls:
+        mock_client_cls.return_value.__enter__.return_value = client
+        results = provider.search("Castellón de la Plana", checkin_date=date(2026, 10, 23), checkout_date=date(2026, 10, 26))
+
+    params = client.get.call_args_list[1].kwargs["params"]
+    assert params["dest_id"] == "-372490" and params["search_type"] == "CITY"
+    assert params["currency_code"] == "EUR"
+    assert params["arrival_date"] == "2026-10-23" and params["departure_date"] == "2026-10-26"
+
+    assert [r.name for r in results] == ["Hotel Euro"]
+    assert results[0].price_per_night == 100.0 and results[0].total_price == 300.0
+    assert results[0].is_live and "/hotel/" not in results[0].booking_url
+
+
+def test_rapidapi_caches_responses_to_save_quota(temp_cache):
+    from datetime import date
+    from unittest.mock import patch
+    from src.core.models import AccommodationType
+    from src.providers.accommodation.rapidapi import RapidApiBookingProvider
+
+    client = _rapidapi_client(
+        {"status": True, "data": [{"dest_id": "-1", "dest_type": "city", "search_type": "city"}]},
+        {"status": True, "data": {"hotels": [_rapid_hotel(1, "Hotel Uno", 120.0), _rapid_hotel(2, "Apartamentos Dos", 90.0)]}},
+    )
+    provider = RapidApiBookingProvider(api_key="valid_test_api_key_123", cache=temp_cache)
+    cin, cout = date(2026, 10, 23), date(2026, 10, 24)
+    with patch("httpx.Client") as mock_client_cls:
+        mock_client_cls.return_value.__enter__.return_value = client
+        first = provider.search("Sagunto", checkin_date=cin, checkout_date=cout)
+        # Changing filters (as Streamlit reruns do) must not hit the API again
+        apartments = provider.search("Sagunto", acc_type=AccommodationType.APARTMENT, checkin_date=cin, checkout_date=cout)
+
+    assert client.get.call_count == 2
+    assert len(first) == 2
+    assert [a.name for a in apartments] == ["Apartamentos Dos"]
+
+
+def test_rapidapi_without_dates_uses_next_weekend(temp_cache):
+    from unittest.mock import patch
+    from src.providers.accommodation.rapidapi import RapidApiBookingProvider
+
+    client = _rapidapi_client(
+        {"status": True, "data": [{"dest_id": "-1", "dest_type": "city", "search_type": "city"}]},
+        {"status": True, "data": {"hotels": [_rapid_hotel(1, "Hotel Uno", 95.0)]}},
+    )
+    provider = RapidApiBookingProvider(api_key="valid_test_api_key_123", cache=temp_cache)
+    with patch("httpx.Client") as mock_client_cls:
+        mock_client_cls.return_value.__enter__.return_value = client
+        results = provider.search("Sagunto")
+
+    assert results[0].checkin_date.weekday() == 4 and results[0].nights_count == 1
+    assert results[0].price_per_night == 95.0
 
 
 def test_mock_links_never_point_to_guessed_hotel_pages(acc_provider: MockAccommodationProvider):

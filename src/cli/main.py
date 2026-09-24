@@ -16,6 +16,7 @@ from rich.table import Table
 from rich.prompt import Prompt, Confirm, IntPrompt, FloatPrompt
 from rich import box
 
+from src.config import settings
 from src.core.models import (
     Accommodation,
     AccommodationType,
@@ -162,7 +163,12 @@ def display_accommodations_table(destination_name: str, accommodations: List[Acc
         table.add_row(*row)
 
     console.print(table)
-    if not all(acc.is_live for acc in accommodations):
+    if not all(acc.is_live for acc in accommodations) and settings.ACCOMMODATION_PROVIDER.lower() == "rapidapi":
+        console.print(
+            "[yellow]⚠️ No se pudieron obtener precios reales de Booking (revisa RAPIDAPI_KEY o la cuota de RapidAPI). "
+            "Se muestran datos de demostración.[/yellow]"
+        )
+    elif not all(acc.is_live for acc in accommodations):
         console.print(
             "[dim]ℹ️ Datos de demostración: precios estimados. Los alojamientos marcados como (ejemplo) son "
             "orientativos y su enlace busca en toda la localidad.[/dim]"
