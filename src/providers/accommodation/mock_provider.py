@@ -3,12 +3,15 @@ import hashlib
 import random
 from typing import Dict, List, Optional, Tuple
 import unicodedata
-import urllib.parse
 from src.core.models import Accommodation, AccommodationType
 from src.providers.base import AccommodationProvider
+from src.providers.accommodation.links import airbnb_search_url, booking_search_url
 
 
-# Curated realistic accommodations for popular Spanish getaway destinations
+# Curated accommodations for popular Spanish getaway destinations.
+# Entries are real properties (linked through a Booking.com search by name) unless marked
+# "example": True, which are illustrative listings linked to a generic city search.
+# Prices are base references; calculate_price_for_dates() simulates the rate for each stay.
 CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
     "Santiago de Compostela": [
         {
@@ -18,7 +21,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.4,
             "reviews_count": 2840,
             "address": "Praza do Obradoiro 1, Santiago de Compostela",
-            "booking_url": "https://www.booking.com/hotel/es/parador-de-santiago-de-compostela.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -28,7 +30,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.1,
             "reviews_count": 1120,
             "address": "Rúa de San Bieito 1, Casco Histórico",
-            "booking_url": "https://www.booking.com/hotel/es/san-bieito.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -38,7 +39,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.9,
             "reviews_count": 640,
             "address": "Rúa do Vilar 42, Santiago de Compostela",
-            "booking_url": "https://www.airbnb.es/s/Santiago-de-Compostela/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         },
         {
@@ -48,7 +49,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.3,
             "reviews_count": 410,
             "address": "Rúa da Caldeirería 18, Santiago de Compostela",
-            "booking_url": "https://www.airbnb.es/s/Santiago-de-Compostela/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500"
         },
         {
@@ -58,7 +59,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.0,
             "reviews_count": 920,
             "address": "Rúa dos Loureiros 12, Santiago de Compostela",
-            "booking_url": "https://www.booking.com/hotel/es/altair-santiago.es.html",
             "image_url": "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=500"
         }
     ],
@@ -70,7 +70,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.7,
             "reviews_count": 1950,
             "address": "Andén de Riazor 25, A Coruña",
-            "booking_url": "https://www.booking.com/hotel/es/riazor.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -80,7 +79,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.2,
             "reviews_count": 530,
             "address": "Paseo da Dársena 8, A Coruña",
-            "booking_url": "https://www.airbnb.es/s/A-Coruna/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         },
         {
@@ -90,7 +89,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.0,
             "reviews_count": 2200,
             "address": "Paseo del Parrote 2-4, A Coruña",
-            "booking_url": "https://www.booking.com/hotel/es/finisterre.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -100,7 +98,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.8,
             "reviews_count": 310,
             "address": "Rúa Compostela 9, A Coruña",
-            "booking_url": "https://www.airbnb.es/s/A-Coruna/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500"
         }
     ],
@@ -112,7 +110,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.2,
             "reviews_count": 2150,
             "address": "Praza de Compostela 21, Vigo",
-            "booking_url": "https://www.booking.com/hotel/es/gran-nagari-boutique-spa.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -122,7 +119,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.9,
             "reviews_count": 480,
             "address": "Rúa Real 14, Casco Vello, Vigo",
-            "booking_url": "https://www.airbnb.es/s/Vigo/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         },
         {
@@ -132,7 +129,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.5,
             "reviews_count": 1600,
             "address": "Rúa María Berdiales 8, Vigo",
-            "booking_url": "https://www.booking.com/hotel/es/axis-vigo.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         }
     ],
@@ -144,7 +140,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.1,
             "reviews_count": 1420,
             "address": "Rúa do Barón 19, Pontevedra",
-            "booking_url": "https://www.booking.com/hotel/es/parador-de-pontevedra.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -154,7 +149,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.3,
             "reviews_count": 390,
             "address": "Praza da Leña 5, Casco Vello, Pontevedra",
-            "booking_url": "https://www.airbnb.es/s/Pontevedra/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500"
         },
         {
@@ -164,7 +159,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.4,
             "reviews_count": 980,
             "address": "Rúa Daniel de la Sota 7, Pontevedra",
-            "booking_url": "https://www.booking.com/hotel/es/rias-bajas.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         }
     ],
@@ -176,7 +170,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.8,
             "reviews_count": 670,
             "address": "Rúa do Rial 1, Vilagarcía de Arousa",
-            "booking_url": "https://www.booking.com/hotel/es/pazo-o-rial.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -186,7 +179,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.2,
             "reviews_count": 280,
             "address": "Avenida da Mariña 45, Vilagarcía",
-            "booking_url": "https://www.airbnb.es/s/Vilagarcia-de-Arousa/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500"
         }
     ],
@@ -198,7 +191,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.9,
             "reviews_count": 1340,
             "address": "Rúa Cardenal Quevedo 28, Ourense",
-            "booking_url": "https://www.booking.com/hotel/es/carris-cardenal-quevedo.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -208,7 +200,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.0,
             "reviews_count": 420,
             "address": "Rúa das Burgas 6, Ourense",
-            "booking_url": "https://www.airbnb.es/s/Ourense/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         },
         {
@@ -218,7 +210,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.3,
             "reviews_count": 1100,
             "address": "Avenida de La Habana 63, Ourense",
-            "booking_url": "https://www.booking.com/hotel/es/princess-ourense.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         }
     ],
@@ -230,7 +221,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.3,
             "reviews_count": 3100,
             "address": "Cerro del Emperador s/n, Toledo",
-            "booking_url": "https://www.booking.com/hotel/es/parador-de-toledo.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -240,7 +230,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.1,
             "reviews_count": 1250,
             "address": "Calle San Román 6, Casco Antiguo, Toledo",
-            "booking_url": "https://www.booking.com/hotel/es/san-roman-toledo.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -250,7 +239,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.0,
             "reviews_count": 680,
             "address": "Plaza de Zocodover 12, Toledo",
-            "booking_url": "https://www.airbnb.es/s/Toledo/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         },
         {
@@ -260,7 +249,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.4,
             "reviews_count": 340,
             "address": "Paseo de la Rosa 34, Toledo",
-            "booking_url": "https://www.airbnb.es/s/Toledo/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500"
         }
     ],
@@ -272,7 +261,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.0,
             "reviews_count": 1820,
             "address": "Calle Juan Bravo 38, Segovia",
-            "booking_url": "https://www.booking.com/hotel/es/real-segovia.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -282,7 +270,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.2,
             "reviews_count": 520,
             "address": "Plaza del Azoguejo 7, Segovia",
-            "booking_url": "https://www.airbnb.es/s/Segovia/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         },
         {
@@ -292,7 +280,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.4,
             "reviews_count": 2100,
             "address": "Plazuela Capuchinos 2, Segovia",
-            "booking_url": "https://www.booking.com/hotel/es/eurostars-convento-capuchinos.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         }
     ],
@@ -304,7 +291,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.0,
             "reviews_count": 1640,
             "address": "Marqués de Canales y Chozas 2, Ávila",
-            "booking_url": "https://www.booking.com/hotel/es/parador-de-avila.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -314,7 +300,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.9,
             "reviews_count": 420,
             "address": "Calle San Segundo 15, Ávila",
-            "booking_url": "https://www.airbnb.es/s/Avila/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500"
         }
     ],
@@ -326,7 +312,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.3,
             "reviews_count": 2240,
             "address": "Ramírez de las Casas Deza 10, Córdoba",
-            "booking_url": "https://www.booking.com/hotel/es/palacio-del-bailio.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -336,7 +321,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.1,
             "reviews_count": 610,
             "address": "Calle Judería 8, Córdoba",
-            "booking_url": "https://www.airbnb.es/s/Cordoba/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         },
         {
@@ -346,7 +331,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.4,
             "reviews_count": 1380,
             "address": "Calle Cabezas 17, Córdoba",
-            "booking_url": "https://www.booking.com/hotel/es/hotel-madinat.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         }
     ],
@@ -358,7 +342,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.2,
             "reviews_count": 2980,
             "address": "Avenida Duque de Nájera 9, Cádiz",
-            "booking_url": "https://www.booking.com/hotel/es/parador-de-cadiz.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -368,7 +351,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.3,
             "reviews_count": 520,
             "address": "Barrio de la Viña 12, Cádiz",
-            "booking_url": "https://www.airbnb.es/s/Cadiz/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500"
         },
         {
@@ -378,7 +361,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.1,
             "reviews_count": 1150,
             "address": "Plaza de España 13, Cádiz",
-            "booking_url": "https://www.booking.com/hotel/es/casa-de-las-cuatro-torres.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         }
     ],
@@ -390,7 +372,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.2,
             "reviews_count": 1780,
             "address": "Carrer Nord 19, Girona",
-            "booking_url": "https://www.booking.com/hotel/es/nord-1901.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -400,7 +381,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.4,
             "reviews_count": 640,
             "address": "Rambla de la Llibertat 22, Girona",
-            "booking_url": "https://www.airbnb.es/s/Girona/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         }
     ],
@@ -412,7 +393,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.8,
             "reviews_count": 1820,
             "address": "Avinguda del Papa Luna 5, Benicarló",
-            "booking_url": "https://www.booking.com/hotel/es/parador-de-benicarlo.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -422,7 +402,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.3,
             "reviews_count": 950,
             "address": "Passeig Marítim 32, Puerto Pesquero, Benicarló",
-            "booking_url": "https://www.booking.com/hotel/es/marynton.es.html",
             "image_url": "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=500"
         },
         {
@@ -432,7 +411,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.8,
             "reviews_count": 850,
             "address": "Carrer del Doctor Fleming 50, Benicarló",
-            "booking_url": "https://www.booking.com/hotel/es/hotel-rosi.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -442,7 +420,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.2,
             "reviews_count": 2150,
             "address": "Avinguda del Papa Luna 132, Playa Norte, Benicarló-Peñíscola",
-            "booking_url": "https://www.booking.com/hotel/es/gran-peniscola.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -452,7 +429,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.9,
             "reviews_count": 1340,
             "address": "Avinguda del Papa Luna 2, Benicarló-Peñíscola",
-            "booking_url": "https://www.booking.com/hotel/es/rh-portocristo.es.html",
             "image_url": "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=500"
         },
         {
@@ -462,7 +438,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.5,
             "reviews_count": 690,
             "address": "Paseo Marítimo 46, Centro Histórico, Benicarló",
-            "booking_url": "https://www.booking.com/hotel/es/el-pinche-de-oro.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -472,7 +447,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.4,
             "reviews_count": 520,
             "address": "Carrer del Port 14, Puerto Pesquero, Benicarló",
-            "booking_url": "https://www.booking.com/hotel/es/apartamentos-marynton.es.html",
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         },
         {
@@ -482,7 +456,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.7,
             "reviews_count": 410,
             "address": "Avinguda de Méndez Núñez 44, Benicarló",
-            "booking_url": "https://www.booking.com/hotel/es/apartamentos-lago-leman.es.html",
             "image_url": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500"
         },
         {
@@ -492,7 +465,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.9,
             "reviews_count": 330,
             "address": "Passeig Marítim 104, Benicarló",
-            "booking_url": "https://www.booking.com/hotel/es/las-cebras-hostel.es.html",
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         },
         {
@@ -502,7 +474,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.2,
             "reviews_count": 890,
             "address": "Avenida Papa Luna 156, Benicarló-Peñíscola",
-            "booking_url": "https://www.booking.com/hotel/es/jardines-del-plaza.es.html",
             "image_url": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500"
         },
         {
@@ -512,7 +483,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.3,
             "reviews_count": 340,
             "address": "Partida Mas del Rey s/n, Benicarló",
-            "booking_url": "https://www.booking.com/hotel/es/mas-del-rey-benicarlo.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -522,7 +492,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.3,
             "reviews_count": 290,
             "address": "Carrer de Sant Francesc 45, Benicarló",
-            "booking_url": "https://www.booking.com/hotel/es/pension-belmonte.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -532,7 +501,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.6,
             "reviews_count": 240,
             "address": "Carrer de Cristo del Mar 28, Benicarló",
-            "booking_url": "https://www.booking.com/hotel/es/casa-mika.es.html",
             "image_url": "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=500"
         },
         {
@@ -542,7 +510,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.1,
             "reviews_count": 420,
             "address": "Avenida Papa Luna 34, Benicarló",
-            "booking_url": "https://www.booking.com/hotel/es/apartamentos-benicarlo-playa-3000.es.html",
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         }
     ],
@@ -554,7 +521,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.5,
             "reviews_count": 2450,
             "address": "Calle Moyano 4, Centro, Castellón",
-            "booking_url": "https://www.booking.com/hotel/es/nhmindoro.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -564,7 +530,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.3,
             "reviews_count": 1820,
             "address": "Ronda Mijares 67, Castellón",
-            "booking_url": "https://www.booking.com/hotel/es/jaimei.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -574,7 +539,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.4,
             "reviews_count": 1650,
             "address": "Ronda Mijares 86-88, Castellón",
-            "booking_url": "https://www.booking.com/hotel/es/hotel-castellon-center-affiliated-by-melia.es.html",
             "image_url": "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=500"
         },
         {
@@ -584,7 +548,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.6,
             "reviews_count": 2100,
             "address": "Pintor Oliet 3, Estación Renfe, Castellón",
-            "booking_url": "https://www.booking.com/hotel/es/hotel-luz-castellon.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -594,7 +557,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.1,
             "reviews_count": 280,
             "address": "Plaza Mayor 8, Castellón",
-            "booking_url": "https://www.airbnb.es/s/Castellon-de-la-Plana/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         }
     ],
@@ -606,7 +569,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.4,
             "reviews_count": 1940,
             "address": "Avenida Ojos Negros 53, Puerto de Sagunto",
-            "booking_url": "https://www.booking.com/hotel/es/exe-puerto-de-sagunto.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -616,7 +578,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.5,
             "reviews_count": 820,
             "address": "Calle Periodista Azzati 18, Sagunto",
-            "booking_url": "https://www.booking.com/hotel/es/domus-atilia.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -626,7 +587,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.0,
             "reviews_count": 310,
             "address": "Paseo Marítimo 15, Puerto de Sagunto",
-            "booking_url": "https://www.airbnb.es/s/Sagunto/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         }
     ],
@@ -638,7 +599,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.6,
             "reviews_count": 2180,
             "address": "Calle Mallorca 19, Playa de Gandía",
-            "booking_url": "https://www.booking.com/hotel/es/rh-bayren-parc.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -648,7 +608,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.2,
             "reviews_count": 1390,
             "address": "Calle Legazpi 17, Gandía",
-            "booking_url": "https://www.booking.com/hotel/es/safari-gandia.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -658,7 +617,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.5,
             "reviews_count": 480,
             "address": "Paseo Marítimo Neptuno 42, Playa de Gandía",
-            "booking_url": "https://www.booking.com/hotel/es/apartamentos-sol-y-playa-gandia.es.html",
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         }
     ],
@@ -670,7 +628,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.0,
             "reviews_count": 1150,
             "address": "Subida al Castillo s/n, Xàtiva",
-            "booking_url": "https://www.booking.com/hotel/es/mont-sant.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -680,7 +637,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.2,
             "reviews_count": 1420,
             "address": "Carrer d'Acàcies 5, Xàtiva",
-            "booking_url": "https://www.booking.com/hotel/es/hotel-vernisa.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -690,7 +646,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.2,
             "reviews_count": 270,
             "address": "Calle Corretgeria 12, Casco Histórico, Xàtiva",
-            "booking_url": "https://www.airbnb.es/s/Xativa/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500"
         }
     ],
@@ -702,7 +658,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.0,
             "reviews_count": 1780,
             "address": "Paseo Marítimo Pilar Coloma 1, Benicàssim",
-            "booking_url": "https://www.booking.com/hotel/es/voramar.es.html",
             "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
         },
         {
@@ -712,7 +667,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.3,
             "reviews_count": 1240,
             "address": "Avenida Ferrandis Salvador 48, Benicàssim",
-            "booking_url": "https://www.booking.com/hotel/es/bersoca.es.html",
             "image_url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=500"
         },
         {
@@ -722,7 +676,6 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 8.8,
             "reviews_count": 1390,
             "address": "Calle Pontatge 6, Benicàssim",
-            "booking_url": "https://www.booking.com/hotel/es/hotel-palasiet.es.html",
             "image_url": "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=500"
         },
         {
@@ -732,7 +685,7 @@ CURATED_ACCOMMODATIONS: Dict[str, List[Dict]] = {
             "rating": 9.2,
             "reviews_count": 290,
             "address": "Paseo Bernat Artola 20, Benicàssim",
-            "booking_url": "https://www.airbnb.es/s/Benicassim/homes",
+            "example": True,
             "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
         }
     ]
@@ -882,26 +835,15 @@ class MockAccommodationProvider(AccommodationProvider):
             if min_rating is not None and item["rating"] < min_rating:
                 continue
 
-            booking_url = item.get("booking_url")
-            if not booking_url:
-                quoted = urllib.parse.quote_plus(clean_name)
-                booking_url = f"https://www.booking.com/searchresults.es.html?ss={quoted}"
-
-            # Guard against invalid airbnb room slugs causing 404
-            if "airbnb.es/rooms/" in booking_url:
-                room_slug = booking_url.split("airbnb.es/rooms/")[-1].split("?")[0].strip("/")
-                if not room_slug.isdigit():
-                    city_slug = urllib.parse.quote(clean_name.replace(" ", "-"))
-                    booking_url = f"https://www.airbnb.es/s/{city_slug}/homes"
-
-            if checkin_date and checkout_date:
-                cin = checkin_date.isoformat()
-                cout = checkout_date.isoformat()
-                sep = "&" if "?" in booking_url else "?"
-                if "booking.com" in booking_url:
-                    booking_url = f"{booking_url}{sep}checkin={cin}&checkout={cout}&group_adults=2&no_rooms=1"
-                else:
-                    booking_url = f"{booking_url}{sep}checkin={cin}&checkout={cout}"
+            # Guessed /hotel/es/<slug> pages 404 whenever the slug is wrong, so real
+            # properties are linked through a Booking search by their exact name instead.
+            is_example = bool(item.get("example"))
+            if not is_example:
+                booking_url = booking_search_url(f"{item['name']}, {clean_name}", checkin_date, checkout_date)
+            elif item["type"] == AccommodationType.APARTMENT:
+                booking_url = airbnb_search_url(clean_name, checkin_date, checkout_date)
+            else:
+                booking_url = booking_search_url(clean_name, checkin_date, checkout_date)
 
             acc_id = f"acc_{clean_name[:4].lower()}_{idx}_{hashlib.md5(item['name'].encode()).hexdigest()[:6]}"
             results.append(
@@ -921,16 +863,16 @@ class MockAccommodationProvider(AccommodationProvider):
                     checkout_date=checkout_date,
                     nights_count=nights_count,
                     total_price=total_price,
+                    is_example=is_example,
                 )
             )
 
         return results
 
     def _generate_synthetic_items(self, city: str) -> List[Dict]:
-        """Generates deterministic realistic hotels and apartments using city hash as seed."""
+        """Generates deterministic illustrative (fictitious) hotels and apartments using city hash as seed."""
         seed_val = int(hashlib.md5(city.encode("utf-8")).hexdigest()[:8], 16)
         rng = random.Random(seed_val)
-        quoted_city = urllib.parse.quote_plus(city)
 
         hotel_names = [
             f"Gran Hotel {city} Spa & Boutique",
@@ -957,7 +899,7 @@ class MockAccommodationProvider(AccommodationProvider):
                 "rating": rating,
                 "reviews_count": reviews,
                 "address": f"Calle Principal {rng.randint(1, 40)}, {city}",
-                "booking_url": f"https://www.booking.com/searchresults.es.html?ss={quoted_city}",
+                "example": True,
                 "image_url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"
             })
 
@@ -972,7 +914,7 @@ class MockAccommodationProvider(AccommodationProvider):
                 "rating": rating,
                 "reviews_count": reviews,
                 "address": f"Plaza de la Constitución {rng.randint(1, 20)}, {city}",
-                "booking_url": f"https://www.airbnb.es/s/{urllib.parse.quote(city)}/homes",
+                "example": True,
                 "image_url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500"
             })
 

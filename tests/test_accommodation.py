@@ -207,6 +207,8 @@ def test_rapidapi_nights_calculation():
     # 90€ total for 2 nights -> 45€ per night, 90€ total stay (NOT 90€/night and 180€ total)
     assert acc.price_per_night == 45.0
     assert acc.total_price == 90.0
+    assert acc.is_live
+    assert "checkin=2026-09-25" in acc.booking_url and "/hotel/" not in acc.booking_url
 
 
 def test_rapidapi_fallback_keeps_stay_dates():
@@ -250,40 +252,36 @@ def test_rapidapi_does_not_mix_in_mock_data_when_filters_exclude_real_results():
     assert results == []
 
 
-def test_apartment_urls_are_valid_and_not_404_slugs(acc_provider: MockAccommodationProvider):
+def test_mock_links_never_point_to_guessed_hotel_pages(acc_provider: MockAccommodationProvider):
+    """Guessed /hotel/es/<slug> pages 404 on Booking when the slug is wrong."""
     from datetime import date
-    cin = date(2026, 10, 16)
-    cout = date(2026, 10, 18)
-    results = acc_provider.search("Benicarló", checkin_date=cin, checkout_date=cout)
+    from urllib.parse import parse_qs, urlparse
 
-    apartments = [a for a in results if a.type == AccommodationType.APARTMENT]
-    assert len(apartments) > 0
+    cin, cout = date(2026, 10, 23), date(2026, 10, 26)
+    for city in ["Benicarló", "Castellón de la Plana", "Sagunto", "Xàtiva", "Gandía", "Benicàssim", "Teruel", "Vinaròs"]:
+        for acc in acc_provider.search(city, checkin_date=cin, checkout_date=cout):
+            assert "/hotel/" not in acc.booking_url, acc.booking_url
+            query = parse_qs(urlparse(acc.booking_url).query)
+            assert query["checkin"] == ["2026-10-23"]
+            assert query["checkout"] == ["2026-10-26"]
+            if not acc.is_example:
+                # Real properties are searched by their exact name in the destination
+                assert "booking.com/searchresults" in acc.booking_url
+                assert query["ss"] == [f"{acc.name}, {city}"]
 
-    for apt in apartments:
-        # Must not contain broken /rooms/ slug that causes 404
-        assert "/rooms/" not in apt.booking_url
-        assert "checkin=2026-10-16" in apt.booking_url
-        assert "checkout=2026-10-18" in apt.booking_url
-        assert "booking.com/hotel/es/" in apt.booking_url
 
+def test_mock_marks_illustrative_listings_as_examples(acc_provider: MockAccommodationProvider):
+    # Curated real hotels are not examples
+    benicarlo = acc_provider.search("Benicarló")
+    names = {r.name: r for r in benicarlo}
+    assert "Hotel Rosi" in names and not names["Hotel Rosi"].is_example
+    assert "Apartamentos Leman" in names and not names["Apartamentos Leman"].is_example
 
-def test_benicarlo_curated_booking_slugs_not_404(acc_provider: MockAccommodationProvider):
-    results = acc_provider.search("Benicarló")
-    names = [r.name for r in results]
+    # Curated generic apartments link to a city search on Airbnb
+    sagunto_examples = [r for r in acc_provider.search("Sagunto") if r.is_example]
+    assert sagunto_examples and all("airbnb.es/s/Sagunto/homes" in r.booking_url for r in sagunto_examples)
 
-    # Verify real hotels and apartments now appear
-    assert "Hotel Iberflat Marynton" in names
-    assert "Hotel Rosi" in names
-    assert "Apartamentos Leman" in names
-    assert "Apartamentos Benicarló Playa 3000" in names
-    assert "Las Cebras Apartamentos Turísticos" in names
-
-    # Verify Apartamentos Leman uses verified lago-leman slug (not broken apartamentos-leman)
-    leman = next(r for r in results if "Leman" in r.name)
-    assert "apartamentos-lago-leman" in leman.booking_url
-    assert "apartamentos-leman.es" not in leman.booking_url
-
-    # Verify gran hotel peniscola does NOT have 404 slug 'gran-hotel-peniscola'
-    gran_hotel = next(r for r in results if "Gran Hotel" in r.name)
-    assert "gran-hotel-peniscola" not in gran_hotel.booking_url
-    assert "gran-peniscola" in gran_hotel.booking_url
+    # Towns without curated data only get synthetic, clearly marked examples
+    synthetic = acc_provider.search("Teruel")
+    assert synthetic and all(r.is_example for r in synthetic)
+    assert all(not r.is_live for r in benicarlo + synthetic)

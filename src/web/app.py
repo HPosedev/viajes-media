@@ -1,7 +1,6 @@
 from datetime import date, timedelta
 from html import escape
 import sys
-import urllib.parse
 from pathlib import Path
 
 # Ensure project root is in sys.path when executed via streamlit run
@@ -20,6 +19,7 @@ from src.core.models import (
 from src.core.router import RailRouter
 from src.core.sorter import filter_and_sort_accommodations
 from src.providers.accommodation import get_accommodation_provider
+from src.providers.accommodation.links import airbnb_search_url, booking_search_url
 from src.providers.rail import get_rail_provider
 
 # Page setup
@@ -609,11 +609,8 @@ else:
         st.caption(f"Filtro: **{acc_type_str}** | Orden: **{sort_criterion_str}** | Máx. {max_budget}€/noche | Mín. {min_rating}★")
 
         b_dest_clean = (selected_route.destination.city or selected_route.destination.name).split("-")[0].strip()
-        quoted_dest_live = urllib.parse.quote_plus(b_dest_clean)
-        cin_iso = sel_checkin.isoformat()
-        cout_iso = sel_checkout.isoformat()
-        full_booking_live_url = f"https://www.booking.com/searchresults.es.html?ss={quoted_dest_live}&checkin={cin_iso}&checkout={cout_iso}&group_adults=2&no_rooms=1"
-        full_airbnb_live_url = f"https://www.airbnb.es/s/{urllib.parse.quote(b_dest_clean)}/homes?checkin={cin_iso}&checkout={cout_iso}"
+        full_booking_live_url = booking_search_url(b_dest_clean, sel_checkin, sel_checkout)
+        full_airbnb_live_url = airbnb_search_url(b_dest_clean, sel_checkin, sel_checkout)
 
         st.html(
             f"""
@@ -651,6 +648,13 @@ else:
         if not filtered_accs:
             st.info("No hay alojamientos que coincidan con los filtros seleccionados. Intenta ampliar el presupuesto o reducir la nota mínima.")
         else:
+            if not all(acc.is_live for acc in filtered_accs):
+                st.caption(
+                    "ℹ️ **Datos de demostración:** los precios son estimaciones y los alojamientos marcados como "
+                    "*ejemplo* son orientativos. Los enlaces abren Booking/Airbnb con tus fechas para ver el precio "
+                    "y la disponibilidad reales."
+                )
+            date_range = f"{sel_checkin.strftime('%d/%m')} - {sel_checkout.strftime('%d/%m')}"
             for acc in filtered_accs:
                 badge_type_color = "#3B82F6" if acc.type == AccommodationType.HOTEL else "#06B6D4"
                 if stay_nights > 1:
@@ -666,19 +670,25 @@ else:
                     )
 
                 is_airbnb = "airbnb" in acc.booking_url.lower()
-                is_search_page = "searchresults" in acc.booking_url.lower() or "/s/" in acc.booking_url.lower()
                 provider_name = "Airbnb" if is_airbnb else "Booking.com"
                 btn_class = "btn-airbnb" if is_airbnb else "btn-booking"
 
-                if is_search_page:
-                    btn_label = f"Buscar en {provider_name} ({sel_checkin.strftime('%d/%m')} - {sel_checkout.strftime('%d/%m')}) ↗"
+                example_badge = ""
+                if acc.is_example:
+                    # Illustrative listing: the link can only be a search of the whole town
+                    btn_label = f"Ver alojamientos en {escape(b_dest_clean)} en {provider_name} ({date_range}) ↗"
+                    example_badge = (
+                        '<span style="background-color: #64748B; color: white; padding: 2px 8px; border-radius: 4px; '
+                        'font-size: 0.75rem; font-weight: 600; margin-left: 6px;">Ejemplo orientativo</span>'
+                    )
+                elif acc.is_live:
+                    btn_label = f"Ver oferta en {provider_name} ({date_range}) ↗"
                 else:
-                    btn_label = f"Ver oferta en {provider_name} ({sel_checkin.strftime('%d/%m')} - {sel_checkout.strftime('%d/%m')}) ↗"
+                    btn_label = f"Ver en {provider_name} ({date_range}) ↗"
 
                 alt_booking_button = ""
                 if is_airbnb:
-                    quoted_alt = urllib.parse.quote_plus(b_dest_clean)
-                    booking_alt_url = f"https://www.booking.com/searchresults.es.html?ss={quoted_alt}&nflt=ht_id%3D201&checkin={cin_iso}&checkout={cout_iso}&group_adults=2&no_rooms=1"
+                    booking_alt_url = booking_search_url(b_dest_clean, sel_checkin, sel_checkout, apartments_only=True)
                     alt_booking_button = f'<a href="{safe_url(booking_alt_url)}" target="_blank" rel="noopener noreferrer" class="btn-booking-secondary">Buscar apartamentos en Booking.com ↗</a>'
 
                 card_html = f"""
@@ -687,7 +697,7 @@ else:
                         <div>
                             <span style="background-color: {badge_type_color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
                                 {acc.type.value}
-                            </span>
+                            </span>{example_badge}
                             <h3 class="hotel-title">{escape(acc.name)}</h3>
                             <p class="hotel-address">📍 {escape(acc.address)}</p>
                             <span class="date-pill">🗓️ {sel_checkin.strftime('%d/%m')} - {sel_checkout.strftime('%d/%m')} ({stay_nights}n)</span>

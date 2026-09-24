@@ -119,6 +119,8 @@ class Accommodation(BaseModel):
     checkout_date: Optional[date] = None
     nights_count: int = 1
     total_price: Optional[float] = None
+    is_example: bool = False  # Illustrative listing, not a specific bookable property
+    is_live: bool = False  # Price and availability come from a real-time provider
 
     @property
     def rating_formatted(self) -> str:

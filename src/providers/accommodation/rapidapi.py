@@ -1,12 +1,12 @@
 from datetime import date
 import logging
 from typing import List, Optional
-import urllib.parse
 import httpx
 
 from src.config import settings
 from src.core.models import Accommodation, AccommodationType
 from src.providers.base import AccommodationProvider
+from src.providers.accommodation.links import booking_search_url
 from src.providers.accommodation.mock_provider import MockAccommodationProvider
 
 logger = logging.getLogger(__name__)
@@ -112,16 +112,12 @@ class RapidApiBookingProvider(AccommodationProvider):
 
                     hotel_id = str(p.get("id", ""))
                     b_url = p.get("url") or p.get("deep_link")
-                    if not b_url:
-                        # Avoid generating broken /hotel/es/{numeric_id}.es.html URLs which 404 on Booking
-                        quoted_query = urllib.parse.quote_plus(f"{name} {clean_name}")
-                        b_url = f"https://www.booking.com/searchresults.es.html?ss={quoted_query}"
-
-                    if checkin_date and checkout_date:
-                        cin = checkin_date.isoformat()
-                        cout = checkout_date.isoformat()
+                    if b_url and checkin_date and checkout_date:
                         sep = "&" if "?" in b_url else "?"
-                        b_url += f"{sep}checkin={cin}&checkout={cout}&group_adults=2&no_rooms=1"
+                        b_url += f"{sep}checkin={checkin_date.isoformat()}&checkout={checkout_date.isoformat()}&group_adults=2&no_rooms=1"
+                    elif not b_url:
+                        # Avoid generating broken /hotel/es/{numeric_id}.es.html URLs which 404 on Booking
+                        b_url = booking_search_url(f"{name}, {clean_name}", checkin_date, checkout_date)
 
                     results.append(
                         Accommodation(
@@ -139,7 +135,8 @@ class RapidApiBookingProvider(AccommodationProvider):
                             checkin_date=checkin_date,
                             checkout_date=checkout_date,
                             nights_count=nights_count,
-                            total_price=round(total_stay_price, 0)
+                            total_price=round(total_stay_price, 0),
+                            is_live=True,
                         )
                     )
 

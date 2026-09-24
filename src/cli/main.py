@@ -147,7 +147,7 @@ def display_accommodations_table(destination_name: str, accommodations: List[Acc
 
         row = [
             str(i),
-            escape(acc.name),
+            escape(acc.name) + (" [dim](ejemplo)[/dim]" if acc.is_example else ""),
             type_badge,
             acc.price_formatted,
         ]
@@ -162,6 +162,11 @@ def display_accommodations_table(destination_name: str, accommodations: List[Acc
         table.add_row(*row)
 
     console.print(table)
+    if not all(acc.is_live for acc in accommodations):
+        console.print(
+            "[dim]ℹ️ Datos de demostración: precios estimados. Los alojamientos marcados como (ejemplo) son "
+            "orientativos y su enlace busca en toda la localidad.[/dim]"
+        )
 
 
 @app.command(name="interactive", help="Modo interactivo paso a paso.")

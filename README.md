@@ -23,7 +23,7 @@ Aplicación modular en Python para descubrir escapadas de fin de semana en tren 
 
 3. **Módulo de Alojamientos:**
    * Patrón **Provider / Strategy** desacoplado (`AccommodationProvider`).
-   * **`MockAccommodationProvider`:** Colección local curada de hoteles y apartamentos realistas en destinos españoles (Paradores, hoteles boutique, apartamentos céntricos) con fallback sintético determinista para desarrollo offline instantáneo sin consumo de cuotas.
+   * **`MockAccommodationProvider`:** Colección local curada de hoteles y apartamentos realistas en destinos españoles (Paradores, hoteles boutique, apartamentos céntricos) con fallback sintético determinista para desarrollo offline instantáneo sin consumo de cuotas. Los precios son estimaciones. Los alojamientos reales enlazan a una búsqueda de Booking por su nombre exacto y tus fechas (nunca a fichas `/hotel/...` adivinadas, que dan 404). Los orientativos se marcan como *ejemplo* y enlazan a la búsqueda de toda la localidad. Para precios y fichas reales usa el proveedor `rapidapi`.
    * **`RapidApiBookingProvider`:** Conexión a endpoints de Booking.com y agregadores vía RapidAPI con fallback automático si no hay clave.
    * **`ScraperAccommodationProvider`:** Esqueleto preparado para un futuro scraper; de momento delega siempre en el proveedor mock.
    * Algoritmo de scoring **Relación Calidad/Precio**:
