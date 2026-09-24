@@ -369,11 +369,8 @@ with st.sidebar:
     st.header("⚙️ Parámetros del Viaje")
 
     station_names = [s.name for s in sorted(stations, key=lambda x: x.name)]
-    default_origin_index = 0
-    for idx, name in enumerate(station_names):
-        if "Santiago" in name:
-            default_origin_index = idx
-            break
+    default_origin = router.find_station(settings.DEFAULT_ORIGIN_STATION)
+    default_origin_index = station_names.index(default_origin.name) if default_origin else 0
 
     selected_origin_name = st.selectbox(
         "🚉 Estación / Población de Origen",
@@ -389,14 +386,15 @@ with st.sidebar:
         st.session_state["selected_dest_idx"] = 0
 
     # Max travel time slider
+    default_minutes = int(settings.DEFAULT_MAX_TRAVEL_HOURS * 60)
     max_travel_minutes = st.slider(
         "⏱️ Límite máximo de tiempo de viaje",
         min_value=20,
         max_value=300,
-        value=150,
+        value=default_minutes,
         step=10,
         format="%d min",
-        help="Equivale a 2h 30m por defecto"
+        help=f"Por defecto {default_minutes // 60}h {default_minutes % 60:02d}m"
     )
     hours = max_travel_minutes // 60
     mins = max_travel_minutes % 60

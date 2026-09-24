@@ -26,7 +26,8 @@ class Settings(BaseSettings):
     CACHE_TTL_HOURS: int = 24
 
     # Routing defaults
-    DEFAULT_MAX_TRAVEL_HOURS: float = 2.5
+    DEFAULT_ORIGIN_STATION: str = "València-Nord"  # Name, city, alias or code of the preselected origin
+    DEFAULT_MAX_TRAVEL_HOURS: float = 2.0
     DEFAULT_MIN_TRANSFER_MARGIN_MINUTES: int = 15
     DEFAULT_MAX_TRANSFER_MARGIN_MINUTES: int = 60
 

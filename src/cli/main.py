@@ -186,7 +186,10 @@ def interactive_wizard():
 
     # 1. Origen
     while True:
-        origin_input = Prompt.ask("\n[bold]1. Introduce la estación o población de origen[/bold] (ej. Santiago de Compostela, Madrid-Atocha)")
+        origin_input = Prompt.ask(
+            "\n[bold]1. Introduce la estación o población de origen[/bold] (ej. Santiago de Compostela, Madrid-Atocha)",
+            default=settings.DEFAULT_ORIGIN_STATION,
+        )
         origin_station = router.find_station(origin_input)
         if origin_station:
             console.print(f"   [green]✓ Estación identificada:[/green] [bold]{origin_station.name}[/bold] ({origin_station.province}, {origin_station.autonomous_community})")
@@ -199,7 +202,7 @@ def interactive_wizard():
     # 2. Límite de tiempo
     time_input = Prompt.ask(
         "\n[bold]2. Límite máximo de tiempo de viaje[/bold] (ej. 'hasta 2 horas y 30 minutos', '2h', '150')",
-        default="hasta 2 horas y 30 minutos"
+        default=f"{int(settings.DEFAULT_MAX_TRAVEL_HOURS * 60)} min"
     )
     max_minutes = parse_travel_time_to_minutes(time_input)
     console.print(f"   [green]✓ Umbral de tiempo fijado en:[/green] [bold]{max_minutes // 60}h {max_minutes % 60:02d}m[/bold] ({max_minutes} minutos)")
@@ -308,8 +311,8 @@ def interactive_wizard():
 
 @app.command(name="search", help="Búsqueda directa por parámetros de línea de comandos.")
 def search_command(
-    origin: str = typer.Option(..., "--origin", "-o", help="Estación o población de origen (ej. 'Santiago de Compostela')"),
-    max_time: str = typer.Option("2h 30m", "--max-time", "-t", help="Tiempo máximo de viaje (ej. '2h 30m', '150')"),
+    origin: str = typer.Option(settings.DEFAULT_ORIGIN_STATION, "--origin", "-o", help="Estación o población de origen (ej. 'Santiago de Compostela')"),
+    max_time: str = typer.Option(f"{int(settings.DEFAULT_MAX_TRAVEL_HOURS * 60)} min", "--max-time", "-t", help="Tiempo máximo de viaje (ej. '2h 30m', '150')"),
     acc_type: str = typer.Option("Ambos", "--acc-type", "-a", help="Tipo de alojamiento: 'Hoteles', 'Apartamentos' o 'Ambos'"),
     sort: str = typer.Option("Relación calidad/precio", "--sort", "-s", help="Criterio: 'Mejor nota', 'Precio más bajo', 'Precio más alto', 'Relación calidad/precio'"),
     destination: Optional[str] = typer.Option(None, "--dest", "-d", help="Destino específico (opcional, si se omite muestra los 3 más cercanos)"),

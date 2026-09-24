@@ -157,6 +157,10 @@ El asistente te solicitará interactivamente:
 # Ejemplo: Salida desde Santiago de Compostela, máximo 2 horas y media
 python -m src.cli.main search --origin "Santiago de Compostela" --max-time "2h 30m" --acc-type "Ambos" --sort "Relación calidad/precio"
 
+# Sin --origin ni --max-time se usan los valores por defecto (València-Nord, 120 min),
+# configurables con DEFAULT_ORIGIN_STATION y DEFAULT_MAX_TRAVEL_HOURS en el .env
+python -m src.cli.main search
+
 # Ejemplo: Salida desde Madrid-Atocha, máximo 1 hora y media, solo hoteles
 python -m src.cli.main search --origin "Madrid-Atocha" --max-time "1h 30m" --acc-type "Hoteles" --sort "Mejor nota"
 ```
